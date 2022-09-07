@@ -201,5 +201,14 @@ cm_naive
 
 #################### ASSIGNMENT 5 #################### 
 # Explain why you obtain the same or different results in the exercises (2-4).
-# 2-3 same
-# 4 different, worse. due to naive?
+# 2-3 same. so markov belt is enough to predict. dont need rest, since all information that the markov belt
+# carries is enough if we know it - i.e. the additional nodes, which affect the markov belt, are not needed, 
+# since the information from them is implicily encoded into the nodes in the markov belt.
+# thus it is enough if we ovserve the nodes in the markov belt. 
+
+
+
+# 4 different, worse. due to naive approach?
+
+
+
