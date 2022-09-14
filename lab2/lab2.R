@@ -1,5 +1,6 @@
 #################### LAB 2 #################### 
 library(HMM)
+library(enropy)
 set.seed("12345")
 
 
@@ -64,14 +65,17 @@ beta = prop.table(exp(backward(HMM_model, observations))) # the backward probabi
 
 # Since we have 10 states, and we simulated 100 time steps, we get a 10x100 matrix for the filtering and smoothing probability distribution
 filtering_probs = matrix(0, 10, 100)
-for (i in 1:100)
+for (i in 1:100) {
   # for each time step i, compute the filtering probability distribution (i.e. the probability for each of the 10 states)
   filtering_probs[,i] = alpha[,i] / sum(alpha[,i])
+}
+
 filtering_probs
 
 smoothing_probs = matrix(0, 10, 100)
-for (i in 1:100)
+for (i in 1:100) {
   smoothing_probs[,i] = alpha[,i] * beta[,i] / sum(alpha[,i] * beta[,i])
+}
 smoothing_probs
 
 
@@ -99,25 +103,135 @@ most_prob_state_smoothing
 states = strtoi(HMM_simulations$states)
 states
 
+# Compute accuracies of the filtering distribution, smoothing distribution, and predicted path
 acc_filtering = sum(most_prob_state_filtering == states) / length(states)
-acc_filtering
 acc_smoothing = sum(most_prob_state_smoothing == states) / length(states)
-acc_smoothing
 acc_path = sum(most_probable_path == states) / length(states)
+acc_filtering
+acc_smoothing
 acc_path
 
 #################### ASSIGNMENT 5 #################### 
-# Repeat the previous exercise with different simulated samples. 
-# smoothed > filtered and veterbi!!!
 
+# Function that takes our model and n time steps, and simulates new states and observations for the given model.
+# The accuracy for using filtering, smoothing, and most probable path are then computed and returned. 
+HMM_accuracies = function(model, n) {
+  HMM_simulations = simHMM(model, n)
+  observations = HMM_simulations$observation
+  
+  alpha = prop.table(exp(forward(model, observations))) # the forward probabilities  
+  beta = prop.table(exp(backward(model, observations))) # the backward probabilities
+  
+  filtering_probs = matrix(0, 10, n)
+  for (i in 1:n) {
+    filtering_probs[,i] = alpha[,i] / sum(alpha[,i])
+  }
+  
+  smoothing_probs = matrix(0, 10, n)
+  for (i in 1:n) {
+    smoothing_probs[,i] = alpha[,i] * beta[,i] / sum(alpha[,i] * beta[,i])
+  }
+  
+  most_probable_path = viterbi(model, observations)
+  
+  most_prob_state_filtering = apply(X = filtering_probs, MARGIN = 2, FUN = which.max)
+  most_prob_state_smoothing = apply(X = smoothing_probs, MARGIN = 2, FUN = which.max)
+  
+  states = strtoi(HMM_simulations$states)
+  
+  # Compute accuracies of the filtering probability distribution, smoothing probability distribution, and predicted path
+  acc_filtering= sum(most_prob_state_filtering == states) / length(states)
+  acc_smoothing = sum(most_prob_state_smoothing == states) / length(states)
+  acc_path = sum(most_probable_path == states) / length(states)
+  
+  return(c(acc_filtering, acc_smoothing, acc_path))
+}
 
+new_samples = 10
+accuracies = matrix(0, nrow = new_samples, ncol = 3)
+colnames(accuracies) = c('filtering', 'smoothing', 'path')
+for (i in 1:new_samples) {
+  sample = HMM_accuracies(HMM_model, 100)
+  accuracies[i,] = sample
+}
 
-# In general, the smoothed distributions should be more accurate than the filtered distributions. Why? 
-# In general,the smoothed distributions should be more accurate than the most probable paths, too. Why ?
+means = matrix(0, nrow = 1, ncol = 3)
+colnames(means) = c('filtering', 'smoothing', 'path')
+means[1,] = c(mean(accuracies[,1]), mean(accuracies[,2]), mean(accuracies[,3]))
 
+accuracies
+means
 
 
 
 #################### ASSIGNMENT 6 #################### 
+# Is it always true that the later in time (i.e., the more observations you have received) the better you know where the robot is?
+# Hint: You may want to compute the entropy of the filtered distributions with the function entropy.empirical of the package entropy.
+
+
+# We want entropy close to 0, means we are more secure about our distribution. 
+# High entropy mean we are unsure about our distribution, if e.g. equal probability. 
+# entropy_empirical[96] = 0, if we look filtering_probs[96] we see it has probability = 1 for state 1, probability 0 for rest of the states, thus very sure.
+# entropy_empirical[1] = 1.5+, if we look at filtering_probs[1] we see it has probability = 0.2 for 5 states, thus very unsure. 
+entropy_empirical = apply(filtering_probs, MARGIN = 2, FUN=entropy.empirical)
+entropy_empirical
+plot(entropy_empirical, type='l')
+
+# From this plot, appears the entropy decreases as t increases, 
+# since there are more high peaks in the start, and the entropy is close to 0 more often towards the end. 
+
+
+# Means from previous exercise where we did multiple simulations using t = 100
+means 
+
+accuracies_200_steps = HMM_accuracies(HMM_model, 200)
+accuracies_200_steps
+
+accuracies_1000_steps = HMM_accuracies(HMM_model, 300)
+accuracies_1000_steps
+
+
+# Compute mean accuracies 100 simulations using t=100
+new_samples = 100
+accuracies = matrix(0, nrow = new_samples, ncol = 3)
+colnames(accuracies) = c('filtering', 'smoothing', 'path')
+for (i in 1:new_samples) {
+  sample = HMM_accuracies(HMM_model, 100)
+  accuracies[i,] = sample
+}
+means = matrix(0, nrow = 1, ncol = 3)
+colnames(means) = c('filtering', 'smoothing', 'path')
+means[1,] = c(mean(accuracies[,1]), mean(accuracies[,2]), mean(accuracies[,3]))
+means
+
+# Compute mean accuracies 100 simulations using t=300
+accuracies_t300 = matrix(0, nrow = new_samples, ncol = 3)
+colnames(accuracies_t300) = c('filtering', 'smoothing', 'path')
+for (i in 1:new_samples) {
+  sample = HMM_accuracies(HMM_model, 100)
+  accuracies_t300[i,] = sample
+}
+means_t300 = matrix(0, nrow = 1, ncol = 3)
+colnames(means_t300) = c('filtering', 'smoothing', 'path')
+means_t300[1,] = c(mean(accuracies_t300[,1]), mean(accuracies_t300[,2]), mean(accuracies_t300[,3]))
+means_t300
+
+
+
 #################### ASSIGNMENT 7 #################### 
+#Consider any of the samples above of length 100. Compute the probabilities of the hidden states for the time step 101.
+
+smoothing_probs[,100]
+# Since we are looking at the last time step, t = 100, using filtering here is equal to using smoothing. 
+filtering_probs[,100]
+
+# We defined our transition probabilities at the beginning, and we can use these to 
+# compute the probability of being in each state at time step t = 101, 
+# given that we have the probabilities of being in each state at time t = 101
+
+# Note: we use the transition probabilities and not the emission probabilities, cause we are interested in the true state,
+# not which state we will actually observe. 
+smoothing_probs[,100] %*% transition_probs
+filtering_probs[,100] %*% transition_probs
+
 
